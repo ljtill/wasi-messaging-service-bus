@@ -1,0 +1,3 @@
+[workspace]
+members = ["src/guest", "src/host"]
+resolver = "2"
