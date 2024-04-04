@@ -1,0 +1,8 @@
+package local:messaging;
+
+world messaging {
+    import wasi:messaging/producer@0.2.0-draft;
+    import wasi:messaging/consumer@0.2.0-draft;
+
+    export wasi:messaging/messaging-guest@0.2.0-draft;
+}
