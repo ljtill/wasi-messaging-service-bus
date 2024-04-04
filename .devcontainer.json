@@ -14,8 +14,5 @@
             ]
         }
     },
-    "postCreateCommand": "bash eng/scripts/dependencies.sh",
-    "containerEnv": {
-        "WIT_BINDGEN_DEBUG": "1"
-    }
+    "postCreateCommand": "bash eng/scripts/dependencies.sh"
 }
