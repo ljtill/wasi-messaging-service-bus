@@ -1,5 +1,5 @@
 [package]
-name = "host"
+name = "consumer"
 version = "0.1.0"
 edition = "2021"
 
@@ -8,6 +8,8 @@ anyhow = "1.0.81"
 async-trait = "0.1.79"
 azure_core = "0.19.0"
 azure_messaging_servicebus = "0.19.0"
+bindings = { version = "0.1.0", path = "../../../crates/bindings" }
+runtime = { version = "0.1.0", path = "../../../crates/runtime" }
 tokio = { version = "1.36.0", features = ["rt-multi-thread", "macros"] }
 wasmtime = "19.0.0"
 wasmtime-wasi = "19.0.0"
