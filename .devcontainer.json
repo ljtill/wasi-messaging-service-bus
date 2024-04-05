@@ -14,5 +14,5 @@
             ]
         }
     },
-    "postCreateCommand": "bash eng/scripts/dependencies.sh"
+    "postCreateCommand": "bash scripts/dependencies.sh"
 }
