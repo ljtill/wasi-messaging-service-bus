@@ -1,3 +1,9 @@
 [workspace]
-members = ["src/guest", "src/host"]
+members = [
+    "crates/bindings",
+    "crates/runtime",
+    "src/guest",
+    "src/host/consumer",
+    "src/host/producer",
+]
 resolver = "2"
