@@ -5,29 +5,25 @@ use bindings::{
     Messaging,
 };
 
-fn listen() {}
-
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     println!("[host] Starting runtime");
 
-    let (mut store, component, mut linker) = build_runtime();
-    consumer::add_to_linker(&mut linker, |ctx: &mut Ctx| ctx)
-        .expect("Failed to add consumer to linker");
-    messaging_types::add_to_linker(&mut linker, |ctx: &mut Ctx| ctx)
-        .expect("Failed to add types to linker");
+    let (mut store, component, mut linker) = build_runtime()?;
+    consumer::add_to_linker(&mut linker, |ctx: &mut Ctx| ctx)?;
+    messaging_types::add_to_linker(&mut linker, |ctx: &mut Ctx| ctx)?;
 
-    let (messaging, _) = Messaging::instantiate_async(&mut store, &component, &linker).await?;
+    let (messaging, _instance) =
+        Messaging::instantiate_async(&mut store, &component, &linker).await?;
 
     println!("[host] Calling guest function (configure)");
-    let guest_configuration = messaging
+    let _guest_configuration = messaging
         .wasi_messaging_messaging_guest()
         .call_configure(&mut store)
-        .await?
-        .unwrap();
+        .await?;
 
     // TODO(ljtill): Subscribe
-    let connection = store.data().connections.get("default").unwrap();
+    let _connection = store.data().connections.get("default").unwrap();
 
     // &[{
     //     Message {
