@@ -69,15 +69,9 @@ impl<T: WasiMessagingView> producer::Host for T {
     ) -> wasmtime::Result<Result<(), wasmtime::component::Resource<Error>>> {
         println!("[host] Called function (send)");
 
-        let client = self.table().get(&c).unwrap();
+        let client = self.table().get(&c)?;
 
         client.queue_client.send_message("hello world").await?;
-
-        // TODO(ljtill): Implement error handling
-        // match client.queue_client.send_message("hello world").await {
-        //     Ok(_) => Ok(Ok(())),
-        //     Err(_) => Ok(Err(self.table().push(Error {}).unwrap())),
-        // }
 
         Ok(Ok(()))
     }
@@ -103,18 +97,15 @@ impl<T: WasiMessagingView> HostClient for T {
         let queue_client = connection.queue_client.clone();
 
         // Push the client to the resource table
-        let resource = self
-            .table()
-            .push(Client {
-                queue_client: queue_client,
-            })
-            .unwrap();
+        let resource = self.table().push(Client {
+            queue_client: queue_client,
+        })?;
 
         Ok(Ok(resource))
     }
 
     fn drop(&mut self, rep: wasmtime::component::Resource<Client>) -> wasmtime::Result<()> {
-        self.table().delete(rep).unwrap();
+        self.table().delete(rep)?;
 
         Ok(())
     }

@@ -21,11 +21,13 @@ impl Guest for Component {
         println!("[guest] Called function (handler)");
 
         println!("[guest] Calling host function (connect)");
-        let client = Client::connect("service_bus").expect("Unable to connect");
+        // TODO(ljtill): Return error from host
+        let client = Client::connect("service_bus")?;
         let channel = "a".to_string();
 
         println!("[guest] Calling host function (send)");
-        producer::send(client, &channel, &ms).expect("Unable to send message");
+        // TODO(ljtill): Return error from host
+        producer::send(client, &channel, &ms)?;
 
         Ok(())
     }

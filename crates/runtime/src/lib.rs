@@ -1,4 +1,4 @@
-use anyhow::Context;
+use anyhow::{Context, Error};
 use std::{collections::HashMap, fs, path::Path};
 use wasmtime::{
     component::{Component, Linker},
@@ -46,7 +46,7 @@ pub fn convert_to_component(path: impl AsRef<Path>) -> wasmtime::Result<Vec<u8>>
         .encode()
 }
 
-pub fn build_runtime() -> (Store<Ctx>, Component, Linker<Ctx>) {
+pub fn build_runtime() -> Result<(Store<Ctx>, Component, Linker<Ctx>), Error> {
     let mut builder = WasiCtxBuilder::new();
     builder.inherit_stdout();
     builder.inherit_stderr();
@@ -55,11 +55,14 @@ pub fn build_runtime() -> (Store<Ctx>, Component, Linker<Ctx>) {
     config.wasm_component_model(true);
     config.async_support(true);
 
-    let engine = Engine::new(&config).expect("Failed to create engine");
+    let engine = Engine::new(&config)?;
 
     // TODO(ljtill): Re-implement connections
     let mut connections = HashMap::new();
-    connections.insert("default".to_string(), new_connection());
+
+    // TODO(ljtill): Default connection set
+    // TODO(ljtill): Workload Identity support
+    connections.insert("default".to_string(), new_connection()?);
 
     let store = Store::new(
         &engine,
@@ -72,13 +75,12 @@ pub fn build_runtime() -> (Store<Ctx>, Component, Linker<Ctx>) {
 
     let mut linker = Linker::new(&engine);
 
-    wasmtime_wasi::command::add_to_linker(&mut linker).expect("Failed to add wasi to linker");
+    wasmtime_wasi::command::add_to_linker(&mut linker)?;
 
     let component = Component::from_binary(
         &engine,
-        &convert_to_component("./target/wasm32-wasi/debug/guest.wasm").expect("Failed to convert"),
-    )
-    .expect("Failed to create component");
+        &convert_to_component("./target/wasm32-wasi/debug/guest.wasm")?,
+    )?;
 
-    (store, component, linker)
+    Ok((store, component, linker))
 }
