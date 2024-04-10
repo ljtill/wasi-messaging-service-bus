@@ -1,21 +1,26 @@
-build: build-guest build-host
+ifneq (,$(wildcard ./.env))
+    include .env
+    export
+endif
 
-build-guest:
+.PHONY: build
+build:
 	@echo "Building guest..."
 	@cargo build --manifest-path ./src/guest/Cargo.toml --target wasm32-wasi
-
-build-host:
 	@echo "Building host..."
 	@cargo build --manifest-path ./src/host/Cargo.toml
 
+.PHONY: clean
 clean:
 	@echo "Cleaning up..."
 	@cargo clean
 
+.PHONY: generate
 generate:
 	@echo "Generating component..."
 	@wasm-tools component new ./target/wasm32-wasi/debug/guest.wasm -o ./guest.component.wasm --adapt ./eng/adapters/wasi_snapshot_preview1.reactor.wasm
 
+.PHONY: run
 run:
 	@echo "Launching host..."
 	@cargo run --manifest-path ./src/host/Cargo.toml
