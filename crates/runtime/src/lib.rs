@@ -61,6 +61,7 @@ impl RuntimeBuilder {
             },
         );
 
+        // TODO(ljtill): Handle Debug & Release builds
         let component = Component::from_binary(
             &engine,
             &convert_to_component("./target/wasm32-wasi/debug/guest.wasm")?,

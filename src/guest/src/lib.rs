@@ -9,19 +9,19 @@ struct Component;
 
 impl Guest for Component {
     fn configure() -> Result<GuestConfiguration, Error> {
-        println!("[guest] Called function (configure)");
+        println!("[trace] configure() function called");
+        let channels = vec!["default".to_string()];
 
         Ok(GuestConfiguration {
-            channels: vec!["my_channel".to_string()],
+            channels: channels,
             extensions: Option::None,
         })
     }
 
     fn handler(_ms: Vec<Message>) -> Result<(), Error> {
-        println!("[guest] Called function (handler)");
+        println!("[trace] handler() function called");
 
-        println!("[guest] Calling host function (connect)");
-        let _client = Client::connect("service_bus")?;
+        let _client = Client::connect("default")?;
 
         // TODO(ljtill): Implement handler
 
