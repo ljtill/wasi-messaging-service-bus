@@ -1,5 +1,5 @@
 use bindings::{
-    wasi::messaging::{consumer, messaging_types},
+    wasi::messaging::{consumer, messaging_types, producer},
     Messaging,
 };
 use runtime::types::{Ctx, RuntimeBuilder};
@@ -10,9 +10,10 @@ async fn main() -> anyhow::Result<()> {
 
     let mut builder = RuntimeBuilder::new()?;
     consumer::add_to_linker(&mut builder.linker, |ctx: &mut Ctx| ctx)?;
+    producer::add_to_linker(&mut builder.linker, |ctx: &mut Ctx| ctx)?;
     messaging_types::add_to_linker(&mut builder.linker, |ctx: &mut Ctx| ctx)?;
 
-    let (messaging, _instance) =
+    let (messaging, _) =
         Messaging::instantiate_async(&mut builder.store, &builder.component, &builder.linker)
             .await?;
 
@@ -23,7 +24,10 @@ async fn main() -> anyhow::Result<()> {
         .await?;
 
     // TODO(ljtill): Subscribe
-    let _connection = builder.store.data().connections.get("default").unwrap();
+    //let _connection = builder.store.data().connections.get("default").unwrap();
+
+    // Listen for messages
+    // Receive them and pass them to the guest
 
     // println!("[host] Calling guest function (handler)");
     // let _res = messaging
