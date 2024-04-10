@@ -26,6 +26,7 @@ impl<T: WasiMessagingView> consumer::Host for T {
         _ch: Channel,
         _t_milliseconds: u32,
     ) -> wasmtime::Result<Result<Option<Vec<Message>>, wasmtime::component::Resource<Error>>> {
+        println!("[trace] subscribe_try_receive() function called");
         todo!()
     }
 
@@ -34,6 +35,7 @@ impl<T: WasiMessagingView> consumer::Host for T {
         _c: wasmtime::component::Resource<Client>,
         _ch: Channel,
     ) -> wasmtime::Result<Result<Vec<Message>, wasmtime::component::Resource<Error>>> {
+        println!("[trace] subscribe_receive() function called");
         todo!()
     }
 
@@ -41,6 +43,7 @@ impl<T: WasiMessagingView> consumer::Host for T {
         &mut self,
         _gc: GuestConfiguration,
     ) -> wasmtime::Result<Result<(), wasmtime::component::Resource<Error>>> {
+        println!("[trace] update_guest_configuration() function called");
         todo!()
     }
 
@@ -48,6 +51,7 @@ impl<T: WasiMessagingView> consumer::Host for T {
         &mut self,
         _m: Message,
     ) -> wasmtime::Result<Result<(), wasmtime::component::Resource<Error>>> {
+        println!("[trace] complete_message() function called");
         todo!()
     }
 
@@ -55,6 +59,7 @@ impl<T: WasiMessagingView> consumer::Host for T {
         &mut self,
         _m: Message,
     ) -> wasmtime::Result<Result<(), wasmtime::component::Resource<Error>>> {
+        println!("[trace] abandon_message() function called");
         todo!()
     }
 }
@@ -67,7 +72,7 @@ impl<T: WasiMessagingView> producer::Host for T {
         _ch: Channel,
         _m: Vec<Message>,
     ) -> wasmtime::Result<Result<(), wasmtime::component::Resource<Error>>> {
-        println!("[host] Called function (send)");
+        println!("[trace] send() function called");
 
         let client = self.table().get(&c)?;
 
@@ -88,7 +93,7 @@ impl<T: WasiMessagingView> HostClient for T {
     ) -> wasmtime::Result<
         Result<wasmtime::component::Resource<Client>, wasmtime::component::Resource<Error>>,
     > {
-        println!("[host] Called function (connect)");
+        println!("[trace] connect() function called");
 
         // Get the connection from the hashmap
         let connection = self.connections().get(name.as_str()).unwrap();
@@ -105,6 +110,7 @@ impl<T: WasiMessagingView> HostClient for T {
     }
 
     fn drop(&mut self, rep: wasmtime::component::Resource<Client>) -> wasmtime::Result<()> {
+        println!("[trace] drop() function called");
         self.table().delete(rep)?;
 
         Ok(())
@@ -114,10 +120,12 @@ impl<T: WasiMessagingView> HostClient for T {
 #[async_trait::async_trait]
 impl<T: WasiMessagingView> HostError for T {
     async fn trace(&mut self) -> wasmtime::Result<String> {
+        println!("[trace] trace() function called");
         todo!()
     }
 
     fn drop(&mut self, _rep: wasmtime::component::Resource<Error>) -> wasmtime::Result<()> {
+        println!("[trace] drop() function called");
         todo!()
     }
 }
