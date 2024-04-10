@@ -1,9 +1,3 @@
 [workspace]
-members = [
-    "crates/bindings",
-    "crates/runtime",
-    "src/guest",
-    "src/host/consumer",
-    "src/host/producer",
-]
+members = ["crates/bindings", "crates/runtime", "src/guest", "src/host"]
 resolver = "2"
