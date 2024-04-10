@@ -2,7 +2,7 @@ wit_bindgen::generate!({
     path: "../../wit"
 });
 
-use crate::wasi::messaging::{messaging_types::Client, producer};
+use crate::wasi::messaging::messaging_types::Client;
 use exports::wasi::messaging::messaging_guest::{Error, Guest, GuestConfiguration, Message};
 
 struct Component;
@@ -17,17 +17,13 @@ impl Guest for Component {
         })
     }
 
-    fn handler(ms: Vec<Message>) -> Result<(), Error> {
+    fn handler(_ms: Vec<Message>) -> Result<(), Error> {
         println!("[guest] Called function (handler)");
 
         println!("[guest] Calling host function (connect)");
-        // TODO(ljtill): Return error from host
-        let client = Client::connect("service_bus")?;
-        let channel = "a".to_string();
+        let _client = Client::connect("service_bus")?;
 
-        println!("[guest] Calling host function (send)");
-        // TODO(ljtill): Return error from host
-        producer::send(client, &channel, &ms)?;
+        // TODO(ljtill): Implement handler
 
         Ok(())
     }
