@@ -8,9 +8,15 @@ use wasmtime::{
 use wasmtime_wasi::{ResourceTable, WasiCtx, WasiCtxBuilder, WasiView};
 use wit_component::ComponentEncoder;
 
-use crate::types::*;
+pub struct Connection {
+    pub queue_client: QueueClient,
+}
 
-pub mod types;
+pub struct Ctx {
+    pub connections: HashMap<String, Connection>,
+    pub table: ResourceTable,
+    pub wasi: WasiCtx,
+}
 
 impl WasiView for Ctx {
     fn ctx(&mut self) -> &mut WasiCtx {
@@ -19,6 +25,12 @@ impl WasiView for Ctx {
     fn table(&mut self) -> &mut wasmtime_wasi::ResourceTable {
         &mut self.table
     }
+}
+
+pub trait WasiMessagingView: Send {
+    fn ctx(&mut self) -> &mut WasiCtx;
+    fn table(&mut self) -> &mut ResourceTable;
+    fn connections(&mut self) -> &mut HashMap<String, Connection>;
 }
 
 impl WasiMessagingView for Ctx {
@@ -31,6 +43,12 @@ impl WasiMessagingView for Ctx {
     fn connections(&mut self) -> &mut HashMap<String, Connection> {
         &mut self.connections
     }
+}
+
+pub struct RuntimeBuilder {
+    pub component: Component,
+    pub linker: Linker<Ctx>,
+    pub store: Store<Ctx>,
 }
 
 impl RuntimeBuilder {
@@ -71,18 +89,16 @@ impl RuntimeBuilder {
         wasmtime_wasi::command::add_to_linker(&mut linker)?;
 
         Ok(Self {
-            store: store,
-            component: component,
-            linker: linker,
+            component,
+            linker,
+            store,
         })
     }
 }
 
 pub fn new_connection() -> Result<Connection, Error> {
-    let http_client = azure_core::new_http_client();
-
     let queue_client = QueueClient::new(
-        http_client,
+        azure_core::new_http_client(),
         std::env::var("SERVICE_BUS_NAMESPACE")
             .expect("Environment variable `SERVICE_BUS_NAMESPACE` should be set."),
         std::env::var("SERVICE_BUS_QUEUE")

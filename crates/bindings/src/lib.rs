@@ -1,22 +1,22 @@
-use runtime::types::WasiMessagingView;
+use azure_messaging_servicebus::service_bus::QueueClient;
+use runtime::WasiMessagingView;
 
-use crate::types::*;
-use crate::wasi::messaging::{
-    consumer,
-    messaging_types::{Channel, GuestConfiguration, Host, HostClient, HostError, Message},
-    producer,
-};
-
-mod types;
+use crate::wasi::messaging::{consumer, messaging_types::*, producer};
 
 wasmtime::component::bindgen!({
     path: "../../wit",
     async: true,
     with: {
-        "wasi:messaging/messaging-types/client": types::Client,
-        "wasi:messaging/messaging-types/error": types::Error,
+        "wasi:messaging/messaging-types/client": Client,
+        "wasi:messaging/messaging-types/error": Error,
     }
 });
+
+pub struct Client {
+    pub queue_client: QueueClient,
+}
+
+pub struct Error {}
 
 #[async_trait::async_trait]
 impl<T: WasiMessagingView> consumer::Host for T {
@@ -26,7 +26,7 @@ impl<T: WasiMessagingView> consumer::Host for T {
         _ch: Channel,
         _t_milliseconds: u32,
     ) -> wasmtime::Result<Result<Option<Vec<Message>>, wasmtime::component::Resource<Error>>> {
-        println!("[trace] subscribe_try_receive() function called");
+        println!("[trace] subscribe_try_receive() function executed");
         todo!()
     }
 
@@ -35,7 +35,7 @@ impl<T: WasiMessagingView> consumer::Host for T {
         _c: wasmtime::component::Resource<Client>,
         _ch: Channel,
     ) -> wasmtime::Result<Result<Vec<Message>, wasmtime::component::Resource<Error>>> {
-        println!("[trace] subscribe_receive() function called");
+        println!("[trace] subscribe_receive() function executed");
         todo!()
     }
 
@@ -43,7 +43,7 @@ impl<T: WasiMessagingView> consumer::Host for T {
         &mut self,
         _gc: GuestConfiguration,
     ) -> wasmtime::Result<Result<(), wasmtime::component::Resource<Error>>> {
-        println!("[trace] update_guest_configuration() function called");
+        println!("[trace] update_guest_configuration() function executed");
         todo!()
     }
 
@@ -51,7 +51,7 @@ impl<T: WasiMessagingView> consumer::Host for T {
         &mut self,
         _m: Message,
     ) -> wasmtime::Result<Result<(), wasmtime::component::Resource<Error>>> {
-        println!("[trace] complete_message() function called");
+        println!("[trace] complete_message() function executed");
         todo!()
     }
 
@@ -59,7 +59,7 @@ impl<T: WasiMessagingView> consumer::Host for T {
         &mut self,
         _m: Message,
     ) -> wasmtime::Result<Result<(), wasmtime::component::Resource<Error>>> {
-        println!("[trace] abandon_message() function called");
+        println!("[trace] abandon_message() function executed");
         todo!()
     }
 }
@@ -72,7 +72,7 @@ impl<T: WasiMessagingView> producer::Host for T {
         _ch: Channel,
         _m: Vec<Message>,
     ) -> wasmtime::Result<Result<(), wasmtime::component::Resource<Error>>> {
-        println!("[trace] send() function called");
+        println!("[trace] send() function executed");
 
         let client = self.table().get(&c)?;
 
@@ -93,7 +93,7 @@ impl<T: WasiMessagingView> HostClient for T {
     ) -> wasmtime::Result<
         Result<wasmtime::component::Resource<Client>, wasmtime::component::Resource<Error>>,
     > {
-        println!("[trace] connect() function called");
+        println!("[trace] connect() function executed");
 
         // Get the connection from the hashmap
         let connection = self.connections().get(name.as_str()).unwrap();
@@ -110,7 +110,7 @@ impl<T: WasiMessagingView> HostClient for T {
     }
 
     fn drop(&mut self, rep: wasmtime::component::Resource<Client>) -> wasmtime::Result<()> {
-        println!("[trace] drop() function called");
+        println!("[trace] drop() function executed");
         self.table().delete(rep)?;
 
         Ok(())
@@ -120,12 +120,12 @@ impl<T: WasiMessagingView> HostClient for T {
 #[async_trait::async_trait]
 impl<T: WasiMessagingView> HostError for T {
     async fn trace(&mut self) -> wasmtime::Result<String> {
-        println!("[trace] trace() function called");
+        println!("[trace] trace() function executed");
         todo!()
     }
 
     fn drop(&mut self, _rep: wasmtime::component::Resource<Error>) -> wasmtime::Result<()> {
-        println!("[trace] drop() function called");
+        println!("[trace] drop() function executed");
         todo!()
     }
 }
