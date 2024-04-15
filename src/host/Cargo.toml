@@ -8,4 +8,4 @@ anyhow = "1.0.81"
 async-trait = "0.1.79"
 bindings = { version = "0.1.0", path = "../../crates/bindings" }
 runtime = { version = "0.1.0", path = "../../crates/runtime" }
-tokio = { version = "1.36.0", features = ["rt-multi-thread", "macros"] }
+tokio = { version = "1.36.0", features = ["full"] }

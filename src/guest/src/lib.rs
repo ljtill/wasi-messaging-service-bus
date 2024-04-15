@@ -1,3 +1,8 @@
+//! # Guest
+//!
+//! The guest implementation for WASI Messaging specification.
+//!
+
 wit_bindgen::generate!({
     path: "../../wit"
 });
@@ -9,7 +14,7 @@ struct Component;
 
 impl Guest for Component {
     fn configure() -> Result<GuestConfiguration, Error> {
-        println!("[trace] configure() function called");
+        println!("[trace] configure() function executed");
         let channels = vec!["default".to_string()];
 
         Ok(GuestConfiguration {
@@ -19,11 +24,11 @@ impl Guest for Component {
     }
 
     fn handler(_ms: Vec<Message>) -> Result<(), Error> {
-        println!("[trace] handler() function called");
+        println!("[trace] handler() function executed");
 
         let _client = Client::connect("default")?;
 
-        // TODO(ljtill): Implement handler
+        // TODO: Implement handler
 
         Ok(())
     }

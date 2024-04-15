@@ -98,7 +98,7 @@ impl<T: WasiMessagingView> HostClient for T {
         // Get the connection from the hashmap
         let connection = self.connections().get(name.as_str()).unwrap();
 
-        // TODO(ljtill): Improve this logic
+        // TODO: Improve this logic
         let queue_client = connection.queue_client.clone();
 
         // Push the client to the resource table
