@@ -15,11 +15,6 @@ clean:
 	@echo "Cleaning up..."
 	@cargo clean
 
-.PHONY: generate
-generate:
-	@echo "Generating component..."
-	@wasm-tools component new ./target/wasm32-wasi/debug/guest.wasm -o ./guest.component.wasm --adapt ./eng/adapters/wasi_snapshot_preview1.reactor.wasm
-
 .PHONY: run
 run:
 	@echo "Launching host..."
