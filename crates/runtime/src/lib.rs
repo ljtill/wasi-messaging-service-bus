@@ -1,6 +1,6 @@
 use anyhow::{Context, Error};
 use azure_messaging_servicebus::service_bus::QueueClient;
-use std::{collections::HashMap, fs, path::Path};
+use std::{collections::HashMap, fs};
 use wasmtime::{
     component::{Component, Linker},
     Config, Engine, Store,
@@ -8,14 +8,36 @@ use wasmtime::{
 use wasmtime_wasi::{ResourceTable, WasiCtx, WasiCtxBuilder, WasiView};
 use wit_component::ComponentEncoder;
 
-pub struct Connection {
+#[derive(Clone)]
+pub struct Client {
     pub queue_client: QueueClient,
 }
 
+fn new_client(channel: String) -> Result<Client, Error> {
+    let namespace = std::env::var("SERVICE_BUS_NAMESPACE")
+        .expect("Environment variable `SERVICE_BUS_NAMESPACE` should be set.");
+
+    let policy_name = std::env::var("SERVICE_BUS_POLICY_NAME")
+        .expect("Environment variable `SERVICE_BUS_POLICY_NAME` should be set.");
+
+    let policy_key = std::env::var("SERVICE_BUS_POLICY_KEY")
+        .expect("Environment variable `SERVICE_BUS_POLICY_KEY` should be set.");
+
+    let queue_client = QueueClient::new(
+        azure_core::new_http_client(),
+        namespace,
+        channel,
+        policy_name,
+        policy_key,
+    )?;
+
+    Ok(Client { queue_client })
+}
+
 pub struct Ctx {
-    pub connections: HashMap<String, Connection>,
-    pub table: ResourceTable,
     pub wasi: WasiCtx,
+    pub table: ResourceTable,
+    pub clients: HashMap<String, Client>,
 }
 
 impl WasiView for Ctx {
@@ -30,7 +52,7 @@ impl WasiView for Ctx {
 pub trait WasiMessagingView: Send {
     fn ctx(&mut self) -> &mut WasiCtx;
     fn table(&mut self) -> &mut ResourceTable;
-    fn connections(&mut self) -> &mut HashMap<String, Connection>;
+    fn connections(&mut self) -> &mut HashMap<String, Client>;
 }
 
 impl WasiMessagingView for Ctx {
@@ -40,86 +62,90 @@ impl WasiMessagingView for Ctx {
     fn table(&mut self) -> &mut wasmtime_wasi::ResourceTable {
         &mut self.table
     }
-    fn connections(&mut self) -> &mut HashMap<String, Connection> {
-        &mut self.connections
+    fn connections(&mut self) -> &mut HashMap<String, Client> {
+        &mut self.clients
     }
 }
 
-pub struct RuntimeBuilder {
-    pub component: Component,
-    pub linker: Linker<Ctx>,
-    pub store: Store<Ctx>,
+#[derive(Clone)]
+pub struct State {
+    clients: HashMap<String, Client>,
 }
 
-impl RuntimeBuilder {
-    pub fn new() -> Result<Self, Error> {
-        let mut builder = WasiCtxBuilder::new();
-        builder.inherit_stdout();
-        builder.inherit_stderr();
+impl State {
+    pub fn new() -> Self {
+        State {
+            clients: HashMap::new(),
+        }
+    }
 
-        let mut config = Config::new();
-        config.wasm_component_model(true);
-        config.async_support(true);
+    pub fn new_client(&mut self, channel: &String) -> Option<Client> {
+        self.clients.insert(
+            channel.to_string(),
+            new_client(channel.to_string()).unwrap(),
+        )
+    }
 
-        let engine = Engine::new(&config)?;
-
-        // TODO(ljtill): Re-implement connections
-        let mut connections = HashMap::new();
-
-        // TODO(ljtill): Default connection set
-        // TODO(ljtill): Workload Identity support
-        connections.insert("default".to_string(), new_connection()?);
-
-        let store = Store::new(
-            &engine,
-            Ctx {
-                connections: connections,
-                table: ResourceTable::new(),
-                wasi: builder.build(),
-            },
-        );
-
-        // TODO(ljtill): Handle Debug & Release builds
-        let component = Component::from_binary(
-            &engine,
-            &convert_to_component("./target/wasm32-wasi/debug/guest.wasm")?,
-        )?;
-
-        let mut linker = Linker::new(&engine);
-        wasmtime_wasi::command::add_to_linker(&mut linker)?;
-
-        Ok(Self {
-            component,
-            linker,
-            store,
-        })
+    pub fn get_client(&self, channel: &String) -> &Client {
+        self.clients.get(channel.as_str()).unwrap()
     }
 }
 
-pub fn new_connection() -> Result<Connection, Error> {
-    let queue_client = QueueClient::new(
-        azure_core::new_http_client(),
-        std::env::var("SERVICE_BUS_NAMESPACE")
-            .expect("Environment variable `SERVICE_BUS_NAMESPACE` should be set."),
-        std::env::var("SERVICE_BUS_QUEUE")
-            .expect("Environment variable `SERVICE_BUS_QUEUE` should be set."),
-        std::env::var("SERVICE_BUS_POLICY_NAME")
-            .expect("Environment variable `SERVICE_BUS_POLICY_NAME` should be set."),
-        std::env::var("SERVICE_BUS_POLICY_KEY")
-            .expect("Environment variable `SERVICE_BUS_POLICY_KEY` should be set."),
-    )?;
+pub fn create_builder() -> WasiCtxBuilder {
+    let mut builder = WasiCtxBuilder::new();
+    builder.inherit_stdout();
+    builder.inherit_stderr();
 
-    Ok(Connection { queue_client })
+    builder
 }
 
-pub fn convert_to_component(path: impl AsRef<Path>) -> wasmtime::Result<Vec<u8>> {
-    // TODO(ljtill): Check file path exists
-    let bytes = &fs::read(&path).context("failed to read file")?;
-    let reactor_bytes = &fs::read("./adapters/wasi_snapshot_preview1.reactor.wasm")
-        .context("failed to read adapter fle")?;
+pub fn create_engine() -> Engine {
+    let mut config = Config::new();
+    config.wasm_component_model(true);
+    config.async_support(true);
 
-    ComponentEncoder::default()
-        .module(&bytes)?
-        .adapter("wasi_snapshot_preview1", reactor_bytes)?
+    Engine::new(&config).unwrap()
+}
+
+pub fn create_store(mut builder: WasiCtxBuilder, engine: &Engine) -> Store<Ctx> {
+    Store::new(
+        &engine,
+        Ctx {
+            clients: HashMap::new(),
+            table: ResourceTable::new(),
+            wasi: builder.build(),
+        },
+    )
+}
+
+pub fn create_component(engine: &Engine) -> Component {
+    let module_path = "./target/wasm32-wasi/debug/guest.wasm";
+    let reactor_path = "./adapters/wasi_snapshot_preview1.reactor.wasm";
+
+    // TODO: Check file path exists
+    let bytes = &fs::read(&module_path)
+        .context("failed to read file")
+        .unwrap();
+
+    let reactor_bytes = &fs::read(reactor_path)
+        .context("failed to read adapter fle")
+        .unwrap();
+
+    let binary = ComponentEncoder::default()
+        .module(&bytes)
+        .unwrap()
+        .adapter("wasi_snapshot_preview1", reactor_bytes)
+        .unwrap()
         .encode()
+        .unwrap();
+
+    // TODO: Handle Debug & Release builds
+    Component::from_binary(&engine, &binary).unwrap()
+}
+
+pub fn create_linker(engine: &Engine) -> Linker<Ctx> {
+    let mut linker = Linker::new(&engine);
+    wasmtime_wasi::command::add_to_linker(&mut linker).unwrap();
+
+    linker
 }
