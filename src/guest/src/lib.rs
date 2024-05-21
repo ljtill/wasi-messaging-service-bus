@@ -1,14 +1,9 @@
-//! # Guest
-//!
-//! The guest implementation for WASI Messaging specification.
-//!
+use crate::wasi::messaging::messaging_types::Client;
+use exports::wasi::messaging::messaging_guest::{Error, Guest, GuestConfiguration, Message};
 
 wit_bindgen::generate!({
     path: "../../wit"
 });
-
-use crate::wasi::messaging::messaging_types::Client;
-use exports::wasi::messaging::messaging_guest::{Error, Guest, GuestConfiguration, Message};
 
 struct Component;
 

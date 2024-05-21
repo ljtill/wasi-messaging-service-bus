@@ -1,36 +1,37 @@
-//! Messaging Host
-//!
-//! The host implementation for WASI Messaging specification.
-//!
-//! The underlying messaging service is Azure Service Bus.
-//!
-
-use bindings::{
-    wasi::messaging::{consumer, messaging_types, producer},
-    Messaging,
-};
-use runtime::{Ctx, State};
+use crate::bindings::*;
+use crate::runtime::*;
 use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 use tokio::{
     select, signal,
     sync::mpsc,
     time::{sleep, Duration},
 };
 
-/// The worker service.
-/// This service listens for messages from Service Bus.
-async fn worker(mut state: State, channel: String, worker_id: usize, tx: mpsc::Sender<String>) {
+mod bindings;
+mod runtime;
+
+async fn worker(
+    client: Arc<Mutex<&Client>>,
+    channel: String,
+    worker_id: usize,
+    tx: mpsc::Sender<String>,
+) -> ! {
     println!("[debug] Starting worker...");
-    state.new_client(&channel);
+    let client = client.lock().unwrap().channels.get(&channel).unwrap();
 
     loop {
         // Peak messages from Service Bus
-        let messages = state
-            .get_client(&channel)
-            .queue_client
-            .peek_lock_message(Some(Duration::from_secs(5)))
-            .await
-            .unwrap();
+        let messages = match client.peek_lock_message(Some(Duration::from_secs(5))).await {
+            Ok(m) => m,
+            Err(e) => {
+                eprintln!(
+                    "[error] Failed to peek messages from channel {}: {:?}",
+                    channel, e
+                );
+                continue;
+            }
+        };
 
         // Check if messages are found
         if !messages.is_empty() {
@@ -40,8 +41,11 @@ async fn worker(mut state: State, channel: String, worker_id: usize, tx: mpsc::S
             );
 
             // Send messages to channel
-            if let Err(_) = tx.send(messages).await {
-                eprintln!("[error] Failed sending messages from worker {}", worker_id);
+            match tx.send(messages).await {
+                Ok(_) => {}
+                Err(_) => {
+                    eprintln!("[error] Failed sending messages from worker {}", worker_id);
+                }
             }
         }
 
@@ -53,9 +57,6 @@ async fn worker(mut state: State, channel: String, worker_id: usize, tx: mpsc::S
 async fn main() -> anyhow::Result<()> {
     println!("[info] Starting runtime...");
 
-    // Create state
-    let state = State::new();
-
     // Create runtime components
     let builder = runtime::create_builder();
     let engine = runtime::create_engine();
@@ -66,27 +67,56 @@ async fn main() -> anyhow::Result<()> {
     let mut linker = runtime::create_linker(&engine);
 
     // Add messaging components to linker
-    consumer::add_to_linker(&mut linker, |ctx: &mut Ctx| ctx)?;
-    producer::add_to_linker(&mut linker, |ctx: &mut Ctx| ctx)?;
-    messaging_types::add_to_linker(&mut linker, |ctx: &mut Ctx| ctx)?;
+    bindings::wasi::messaging::consumer::add_to_linker(&mut linker, |ctx: &mut Ctx| ctx)?;
+    bindings::wasi::messaging::producer::add_to_linker(&mut linker, |ctx: &mut Ctx| ctx)?;
+    bindings::wasi::messaging::messaging_types::add_to_linker(&mut linker, |ctx: &mut Ctx| ctx)?;
 
     // Instantiate messaging component
     let (messaging, _instance) =
         Messaging::instantiate_async(&mut store, &component, &linker).await?;
 
     // Configure messaging
-    let configuration = messaging
+    let configuration = match messaging
         .wasi_messaging_messaging_guest()
         .call_configure(&mut store)
         .await?
-        .unwrap();
+    {
+        Ok(c) => c,
+        Err(e) => {
+            eprintln!("[error] Failed to configure messaging: {:?}", e);
+            println!("[info] Terminating runtime...");
+            std::process::exit(1);
+        }
+    };
+
+    // Initialize state with clients in resource table
+    let resource_client = runtime::initialise_client(&configuration.channels, &mut store);
 
     // Number of workers
     let num_workers = configuration.channels.len();
 
     // Store channels
     let mut worker_channels = HashMap::<usize, mpsc::Receiver<String>>::new();
-    let mut worker_handles = Vec::new();
+    // let mut worker_handles = Vec::new();
+
+    let client = store.data().table.get(&resource_client).unwrap();
+
+    let client = Arc::new(Mutex::new(client));
+
+    // Wrap store in Arc<Mutex<Store<Ctx>>>
+    // let store = Arc::new(Mutex::new(store));
+
+    // let client = Arc::new(Mutex::new(
+    //     store.data().table.get(&resource_client).unwrap(),
+    // ));
+
+    // let client = match store.data().table.get(&resource_client) {
+    //     Ok(c) => c,
+    //     Err(e) => {
+    //         eprintln!("[error] Failed to get client: {:?}", e);
+    //         panic!();
+    //     }
+    // };
 
     // Spawn workers and create sender channels
     for worker_id in 0..num_workers {
@@ -97,11 +127,11 @@ async fn main() -> anyhow::Result<()> {
         // Parse worker channel
         let channel = configuration.channels[worker_id].clone();
 
-        let state = state.clone();
+        let client = client.clone();
 
         // Spawn worker task
-        let worker_handle = tokio::spawn(worker(state, channel, worker_id, tx));
-        worker_handles.push(worker_handle);
+        let worker_handle = tokio::spawn(worker(client, channel, worker_id, tx));
+        // worker_handles.push(worker_handle);
     }
 
     loop {
@@ -114,7 +144,7 @@ async fn main() -> anyhow::Result<()> {
                 for (worker_id, sender) in &mut worker_channels {
                     if let Some(message) = sender.recv().await {
                         println!("[trace] Received data: {}", message);
-                        // Process message here based on worker_id
+                        // TODO: Implement message processing
                         // println!("[host] Calling guest function (handler)");
                         // let _res = messaging
                         //     .wasi_messaging_messaging_guest()

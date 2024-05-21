@@ -1,7 +1,7 @@
-use azure_messaging_servicebus::service_bus::QueueClient;
-use runtime::WasiMessagingView;
-
 use crate::wasi::messaging::{consumer, messaging_types::*, producer};
+use azure_messaging_servicebus::prelude::*;
+use std::collections::HashMap;
+use wasmtime_wasi::WasiView;
 
 wasmtime::component::bindgen!({
     path: "../../wit",
@@ -13,13 +13,13 @@ wasmtime::component::bindgen!({
 });
 
 pub struct Client {
-    pub queue_client: QueueClient,
+    pub channels: HashMap<String, QueueClient>,
 }
 
 pub struct Error {}
 
 #[async_trait::async_trait]
-impl<T: WasiMessagingView> consumer::Host for T {
+impl<T: WasiView> consumer::Host for T {
     async fn subscribe_try_receive(
         &mut self,
         _c: wasmtime::component::Resource<Client>,
@@ -65,48 +65,59 @@ impl<T: WasiMessagingView> consumer::Host for T {
 }
 
 #[async_trait::async_trait]
-impl<T: WasiMessagingView> producer::Host for T {
+impl<T: WasiView> producer::Host for T {
     async fn send(
         &mut self,
-        c: wasmtime::component::Resource<Client>,
+        _c: wasmtime::component::Resource<Client>,
         _ch: Channel,
         _m: Vec<Message>,
     ) -> wasmtime::Result<Result<(), wasmtime::component::Resource<Error>>> {
         println!("[trace] send() function executed");
 
-        let client = self.table().get(&c)?;
+        todo!()
 
-        client.queue_client.send_message("hello world").await?;
+        // let queue_clients = self.table().iter_children(&c);
+        // Iterate and find the queue_client we want based on the channel
+        // client.queue_client.send_message("hello world").await?;
 
-        Ok(Ok(()))
+        // Ok(Ok(()))
     }
 }
 
 #[async_trait::async_trait]
-impl<T: WasiMessagingView> Host for T {}
+impl<T: WasiView> Host for T {}
 
 #[async_trait::async_trait]
-impl<T: WasiMessagingView> HostClient for T {
+impl<T: WasiView> HostClient for T {
     async fn connect(
         &mut self,
-        name: String,
+        _name: String,
     ) -> wasmtime::Result<
         Result<wasmtime::component::Resource<Client>, wasmtime::component::Resource<Error>>,
     > {
         println!("[trace] connect() function executed");
 
-        // Get the connection from the hashmap
-        let connection = self.connections().get(name.as_str()).unwrap();
+        // Takes a name to return a client connection
 
-        // TODO: Improve this logic
-        let queue_client = connection.queue_client.clone();
+        todo!()
+
+        // Get the connection from the hashmap
+        // let connection = match self.connections().get(name.as_str()) {
+        //     Some(c) => c,
+        //     None => {
+        //         return Ok(Err(self.table().push(Error {})?));
+        //     }
+        // };
+
+        // TODO: Remove clone()
+        // let queue_client = connection.queue_client.clone();
 
         // Push the client to the resource table
-        let resource = self.table().push(Client {
-            queue_client: queue_client,
-        })?;
+        // let resource = self.table().push(Client {
+        //     queue_client: queue_client,
+        // })?;
 
-        Ok(Ok(resource))
+        // Ok(Ok(resource))
     }
 
     fn drop(&mut self, rep: wasmtime::component::Resource<Client>) -> wasmtime::Result<()> {
@@ -118,14 +129,16 @@ impl<T: WasiMessagingView> HostClient for T {
 }
 
 #[async_trait::async_trait]
-impl<T: WasiMessagingView> HostError for T {
+impl<T: WasiView> HostError for T {
     async fn trace(&mut self) -> wasmtime::Result<String> {
         println!("[trace] trace() function executed");
         todo!()
     }
 
-    fn drop(&mut self, _rep: wasmtime::component::Resource<Error>) -> wasmtime::Result<()> {
+    fn drop(&mut self, rep: wasmtime::component::Resource<Error>) -> wasmtime::Result<()> {
         println!("[trace] drop() function executed");
-        todo!()
+        self.table().delete(rep)?;
+
+        Ok(())
     }
 }
