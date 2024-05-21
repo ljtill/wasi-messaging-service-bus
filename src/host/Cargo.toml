@@ -6,6 +6,9 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.81"
 async-trait = "0.1.79"
-bindings = { version = "0.1.0", path = "../../crates/bindings" }
-runtime = { version = "0.1.0", path = "../../crates/runtime" }
+azure_core = "0.20.0"
+azure_messaging_servicebus = "0.20.0"
 tokio = { version = "1.36.0", features = ["full"] }
+wasmtime = "20.0.0"
+wasmtime-wasi = "20.0.0"
+wit-component = "0.205.0"
